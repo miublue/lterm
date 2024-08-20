@@ -1,7 +1,6 @@
-OUT = lterm
 LIB = `pkg-config --libs --cflags gtk+-3.0 vte-2.91`
 all:
-	gcc -o $(OUT) *.c $(LIB) -O2
+	cc -O2 -o lterm *.c ${LIB}
 
 install: all
-	install $(OUT) /usr/local/bin
+	install lterm /usr/local/bin

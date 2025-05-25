@@ -59,7 +59,6 @@ static gboolean keypress(GtkWidget *w, GdkEventKey *event) {
 }
 
 void main(int argc, char **argv) {
-    gtk_init(&argc, &argv);
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "-h")) {
             printf("usage: %s [-h|-w xid|-d dir|-t title|-f font|-a alpha] [command [args ...]]\n", argv[0]);
@@ -83,6 +82,7 @@ void main(int argc, char **argv) {
         }
     }
 
+    gtk_init(&argc, &argv);
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     term = vte_terminal_new();
     gtk_window_set_default_size(GTK_WINDOW(window), 900, 540);

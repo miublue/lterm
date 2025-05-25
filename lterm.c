@@ -5,12 +5,19 @@
 #include <stdio.h>
 #include "config.h"
 
+#define CMDMAX 255
 #define TERM_KEY(k) (event->keyval == (k) && modifiers == (MOD))
-static char *cmd[32] = { "/bin/bash", NULL };
+static char *cmd[CMDMAX] = { SHELL, NULL };
 static char *dir, *xid, *title = "lterm", *font = FONT;
 static double font_scale = 1, alpha = ALPHA;
 static GdkRGBA background, palette[16];
 static GtkWidget *window, *term;
+
+static void set_alpha_scale(double scale) {
+    background.alpha = scale;
+    gtk_widget_override_background_color(window, GTK_STATE_FLAG_NORMAL, &background);
+    vte_terminal_set_colors(VTE_TERMINAL(term), &palette[15], &background, palette, 16);
+}
 
 static void setup_terminal(VteTerminal *term) {
     PangoFontDescription *pfont = pango_font_description_from_string(font);
@@ -22,13 +29,11 @@ static void setup_terminal(VteTerminal *term) {
     vte_terminal_spawn_async(term, VTE_PTY_DEFAULT, dir, cmd, NULL,
         G_SPAWN_DEFAULT, NULL, NULL, NULL, -1, NULL, NULL, NULL);
     vte_terminal_set_cursor_blink_mode(term, VTE_CURSOR_BLINK_OFF);
-    vte_terminal_set_colors(term, &palette[15], &background, palette, 16);
     vte_terminal_set_font(term, pfont);
     vte_terminal_set_font_scale(term, font_scale);
 
     GdkScreen *s = gtk_widget_get_screen(window);
     gtk_widget_set_visual(window, gdk_screen_get_rgba_visual(s));
-    gtk_widget_override_background_color(window, GTK_STATE_FLAG_NORMAL, &background);
 }
 
 static gboolean keypress(GtkWidget *w, GdkEventKey *event) {
@@ -43,6 +48,12 @@ static gboolean keypress(GtkWidget *w, GdkEventKey *event) {
         vte_terminal_set_font_scale(VTE_TERMINAL(term), (font_scale -= 0.1));
     else if (TERM_KEY(GDK_KEY_BackSpace))
         vte_terminal_set_font_scale(VTE_TERMINAL(term), (font_scale = 1.0));
+    else if (TERM_KEY(GDK_KEY_less))
+        set_alpha_scale(background.alpha > 0? background.alpha - 0.05 : 0);
+    else if (TERM_KEY(GDK_KEY_greater))
+        set_alpha_scale(background.alpha < 1? background.alpha + 0.05 : 1);
+    else if (TERM_KEY(GDK_KEY_colon))
+        set_alpha_scale(alpha);
     else return FALSE;
     return TRUE;
 }
@@ -81,6 +92,7 @@ void main(int argc, char **argv) {
     g_signal_connect(term, "child-exited", G_CALLBACK(gtk_main_quit), NULL);
     gtk_container_add(GTK_CONTAINER(window), term);
     setup_terminal(VTE_TERMINAL(term));
+    set_alpha_scale(alpha);
     gtk_widget_show_all(window);
     gtk_widget_grab_focus(term);
 

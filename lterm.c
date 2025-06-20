@@ -10,8 +10,14 @@
 static char *cmd[CMDMAX] = { SHELL, NULL };
 static char *dir, *xid, *title = "lterm", *font = FONT;
 static double font_scale = 1, alpha = ALPHA;
+static gboolean fullscreen = FALSE;
 static GdkRGBA background, palette[16];
 static GtkWidget *window, *term;
+
+static void set_fullscreen(gboolean toggle) {
+    if (toggle) gtk_window_fullscreen(GTK_WINDOW(window));
+    else gtk_window_unfullscreen(GTK_WINDOW(window));
+}
 
 static void set_alpha_scale(double scale) {
     background.alpha = scale;
@@ -54,6 +60,8 @@ static gboolean keypress(GtkWidget *w, GdkEventKey *event) {
         set_alpha_scale(background.alpha < 1? background.alpha + 0.05 : 1);
     else if (TERM_KEY(GDK_KEY_colon))
         set_alpha_scale(alpha);
+    else if (event->keyval == GDK_KEY_F11)
+        set_fullscreen(fullscreen = !fullscreen);
     else return FALSE;
     return TRUE;
 }
@@ -61,7 +69,7 @@ static gboolean keypress(GtkWidget *w, GdkEventKey *event) {
 void main(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "-h")) {
-            printf("usage: %s [-h|-w xid|-d dir|-t title|-f font|-a alpha] [command [args ...]]\n", argv[0]);
+            printf("usage: %s [-h|-F|-w xid|-d dir|-t title|-f font|-a alpha] [command [args ...]]\n", argv[0]);
             return;
         } else if (!strcmp(argv[i], "-d")) {
             dir = argv[++i];
@@ -74,6 +82,8 @@ void main(int argc, char **argv) {
         } else if (!strcmp(argv[i], "-a")) {
             alpha = strtod(argv[++i], NULL);
             alpha = (alpha < 0? 0 : alpha > 1? 1 : alpha);
+        } else if (!strcmp(argv[i], "-F")) {
+            fullscreen = TRUE;
         } else {
             cmd[1] = "-c";
             for (int j = i; j < argc; ++j)
@@ -93,6 +103,7 @@ void main(int argc, char **argv) {
     gtk_container_add(GTK_CONTAINER(window), term);
     setup_terminal(VTE_TERMINAL(term));
     set_alpha_scale(alpha);
+    set_fullscreen(fullscreen);
     gtk_widget_show_all(window);
     gtk_widget_grab_focus(term);
 

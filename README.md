@@ -9,13 +9,14 @@ make install
 
 ## Usage
 ```
-lterm [-h|-w wid|-d dir|-t title|-f font|-a alpha] [command [args ...]]
+lterm [-h|-w wid|-d dir|-t title|-f font|-a alpha|-s scale] [command [args ...]]
     -h        show help
     -w wid    launch terminal within another X11 window
     -d dir    launch terminal in specified directory
     -t title  set specified window title
     -f font   set specified font
     -a alpha  set window transparency from 0 to 1
+    -s scale  set line spacing
 ```
 
 ## Configuring

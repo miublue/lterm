@@ -5,111 +5,123 @@
 #include <stdio.h>
 #include "config.h"
 
-#define CMD_MAX 255
-#define TERM_KEY(k) (event->keyval == (k) && modifiers == (MOD))
-static char *cmd[CMD_MAX] = { SHELL, NULL };
-static char *opt_dir, *opt_wid, *opt_title = TITLE, *opt_font = FONT;
-static double font_scale = 1, opt_alpha = ALPHA;
-static GdkRGBA background, palette[16];
-static GtkWidget *window, *term;
+static struct {
+    char *cmd[255];
+    char *cur_dir, *x11_wid, *win_title, *font;
+    double alpha_scale, line_spacing;
+    int hide_mouse, enable_sixel;
+} opts;
+
+static struct {
+    GtkWidget *window, *term;
+    GdkRGBA background, palette[16];
+    double font_scale;
+} lerm;
 
 static void set_alpha_scale(double scale) {
-    background.alpha = scale;
-    vte_terminal_set_colors(VTE_TERMINAL(term), &palette[15], &background, palette, 16);
+    lerm.background.alpha = scale;
+    vte_terminal_set_colors(VTE_TERMINAL(lerm.term), &lerm.palette[15], &lerm.background, lerm.palette, 16);
 }
 
 static void setup_terminal(VteTerminal *term) {
-    PangoFontDescription *font = pango_font_description_from_string(opt_font);
-    for (int i = 0; i < 16; ++i)
-        gdk_rgba_parse(palette+i, colors[i]);
-    background = palette[0];
-    background.alpha = opt_alpha;
-
-    vte_terminal_spawn_async(term, VTE_PTY_DEFAULT, opt_dir, cmd, NULL,
+    PangoFontDescription *font = pango_font_description_from_string(opts.font);
+    for (int i = 0; i < 16; ++i) gdk_rgba_parse(lerm.palette+i, colors[i]);
+    lerm.background = lerm.palette[0];
+    lerm.background.alpha = opts.alpha_scale;
+    vte_terminal_spawn_async(term, VTE_PTY_DEFAULT, opts.cur_dir, opts.cmd, NULL,
         G_SPAWN_DEFAULT, NULL, NULL, NULL, -1, NULL, NULL, NULL);
     vte_terminal_set_cursor_blink_mode(term, VTE_CURSOR_BLINK_OFF);
     vte_terminal_set_font(term, font);
-    vte_terminal_set_font_scale(term, font_scale);
-
-    GdkScreen *s = gtk_widget_get_screen(window);
-    gtk_widget_set_visual(window, gdk_screen_get_rgba_visual(s));
+    vte_terminal_set_font_scale(term, 1.0);
+    vte_terminal_set_enable_sixel(term, opts.enable_sixel);
+    vte_terminal_set_mouse_autohide(term, opts.hide_mouse);
+    vte_terminal_set_cell_height_scale(term, opts.line_spacing);
+    gtk_widget_set_visual(lerm.window, gdk_screen_get_rgba_visual(gtk_widget_get_screen(lerm.window)));
 }
 
+#define TERM_KEY(M, K) (event->keyval == (K) && modifiers == (M))
 static gboolean cb_key_press(GtkWidget *w, GdkEventKey *event) {
     GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
-    if (TERM_KEY(GDK_KEY_C))
-        vte_terminal_copy_clipboard_format(VTE_TERMINAL(term), VTE_FORMAT_TEXT);
-    else if (TERM_KEY(GDK_KEY_V))
-        vte_terminal_paste_clipboard(VTE_TERMINAL(term));
-    else if (TERM_KEY(GDK_KEY_plus))
-        vte_terminal_set_font_scale(VTE_TERMINAL(term), (font_scale += 0.1));
-    else if (TERM_KEY(GDK_KEY_underscore))
-        vte_terminal_set_font_scale(VTE_TERMINAL(term), (font_scale -= 0.1));
-    else if (TERM_KEY(GDK_KEY_BackSpace))
-        vte_terminal_set_font_scale(VTE_TERMINAL(term), (font_scale = 1.0));
-    else if (TERM_KEY(GDK_KEY_less))
-        set_alpha_scale(background.alpha > 0? background.alpha - 0.05 : 0);
-    else if (TERM_KEY(GDK_KEY_greater))
-        set_alpha_scale(background.alpha < 1? background.alpha + 0.05 : 1);
-    else if (TERM_KEY(GDK_KEY_question))
-        set_alpha_scale(opt_alpha);
+    if (KEY_COPY)
+        vte_terminal_copy_clipboard_format(VTE_TERMINAL(lerm.term), VTE_FORMAT_TEXT);
+    else if (KEY_PASTE)
+        vte_terminal_paste_clipboard(VTE_TERMINAL(lerm.term));
+    else if (KEY_DECREMENT_FONT_SIZE)
+        vte_terminal_set_font_scale(VTE_TERMINAL(lerm.term), (lerm.font_scale -= 0.1));
+    else if (KEY_INCREMENT_FONT_SIZE)
+        vte_terminal_set_font_scale(VTE_TERMINAL(lerm.term), (lerm.font_scale += 0.1));
+    else if (KEY_RESET_FONT_SIZE)
+        vte_terminal_set_font_scale(VTE_TERMINAL(lerm.term), (lerm.font_scale = 1.0));
+    else if (KEY_DECREMENT_OPACITY)
+        set_alpha_scale(lerm.background.alpha > 0? lerm.background.alpha - 0.05 : 0);
+    else if (KEY_INCREMENT_OPACITY)
+        set_alpha_scale(lerm.background.alpha < 1? lerm.background.alpha + 0.05 : 1);
+    else if (KEY_RESET_OPACITY)
+        set_alpha_scale(opts.alpha_scale);
     else return FALSE;
     return TRUE;
 }
 
-void usage(char *prg) {
-    printf("usage: %s [-h|-w wid|-d dir|-t title|-f font|-a alpha] [command [args ...]]\n", prg);
+static void usage(const char *prg) {
+    printf("usage: %s [-h|-w wid|-d dir|-t title|-f font|-a alpha|-s scale] [command [args ...]]\n", prg);
     printf("    -h        show help\n");
     printf("    -w wid    launch terminal within another X11 window\n");
     printf("    -d dir    launch terminal in specified directory\n");
     printf("    -t title  set specified window title\n");
     printf("    -f font   set specified font\n");
     printf("    -a alpha  set window transparency from 0 to 1\n");
+    printf("    -s scale  set line spacing\n");
     exit(0);
 }
 
 int main(int argc, char **argv) {
+    opts.cmd[0] = SHELL;
+    opts.win_title = TITLE, opts.font = FONT;
+    opts.alpha_scale = ALPHA, opts.line_spacing = LINE_SPACING;
+    opts.hide_mouse = HIDE_MOUSE, opts.enable_sixel = ENABLE_SIXEL;
+    lerm.font_scale = 1.0;
     for (int i = 1; i < argc; ++i) {
-        if (!strcmp(argv[i], "-h") || (argv[i][0] == '-' && argc < 3)) {
+        if (!strcmp(argv[i], "-h") || (argv[i][0] == '-' && i+1 >= argc)) {
             usage(argv[0]);
         } else if (!strcmp(argv[i], "-d")) {
-            opt_dir = argv[++i];
+            opts.cur_dir = argv[++i];
         } else if (!strcmp(argv[i], "-w")) {
-            opt_wid = argv[++i];
+            opts.x11_wid = argv[++i];
         } else if (!strcmp(argv[i], "-t")) {
-            opt_title = argv[++i];
+            opts.win_title = argv[++i];
         } else if (!strcmp(argv[i], "-f")) {
-            opt_font = argv[++i];
+            opts.font = argv[++i];
         } else if (!strcmp(argv[i], "-a")) {
-            opt_alpha = strtod(argv[++i], NULL);
-            opt_alpha = (opt_alpha < 0? 0 : opt_alpha > 1? 1 : opt_alpha);
+            opts.alpha_scale = strtod(argv[++i], NULL);
+            opts.alpha_scale = (opts.alpha_scale < 0? 0 : opts.alpha_scale > 1? 1 : opts.alpha_scale);
+        } else if (!strcmp(argv[i], "-s")) {
+            opts.line_spacing = strtod(argv[++i], NULL);
         } else {
-            cmd[1] = "-c";
-            for (int j = i; j < argc; ++j) {
-                cmd[j-i+2] = argv[j];
-            }
+            if (argv[i][0] == '-') usage(argv[0]);
+            opts.cmd[1] = "-c";
+            for (int j = i; j < argc; ++j) opts.cmd[j-i+2] = argv[j];
             break;
         }
     }
 
     gtk_init(&argc, &argv);
-    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    term = vte_terminal_new();
-    gtk_window_set_default_size(GTK_WINDOW(window), WIDTH, HEIGHT);
-    gtk_window_set_title(GTK_WINDOW(window), opt_title);
-    g_signal_connect(window, "key-press-event", G_CALLBACK(cb_key_press), NULL);
-    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
-    g_signal_connect(term, "child-exited", G_CALLBACK(gtk_main_quit), NULL);
-    gtk_container_add(GTK_CONTAINER(window), term);
-    setup_terminal(VTE_TERMINAL(term));
-    set_alpha_scale(opt_alpha);
-    gtk_widget_show_all(window);
-    gtk_widget_grab_focus(term);
+    lerm.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    lerm.term = vte_terminal_new();
+    gtk_window_set_default_size(GTK_WINDOW(lerm.window), WIDTH, HEIGHT);
+    gtk_window_set_title(GTK_WINDOW(lerm.window), opts.win_title);
+    g_signal_connect(lerm.window, "key-press-event", G_CALLBACK(cb_key_press), NULL);
+    g_signal_connect(lerm.window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+    g_signal_connect(lerm.term, "child-exited", G_CALLBACK(gtk_main_quit), NULL);
+    gtk_container_add(GTK_CONTAINER(lerm.window), lerm.term);
+    setup_terminal(VTE_TERMINAL(lerm.term));
+    set_alpha_scale(opts.alpha_scale);
+    gtk_widget_show_all(lerm.window);
+    gtk_widget_grab_focus(lerm.term);
 
-    if (opt_wid) {
-        Window p = strtol(opt_wid, NULL, 0);
+    if (opts.x11_wid) {
+        Window p = strtol(opts.x11_wid, NULL, 0);
         Display *d = gdk_x11_display_get_xdisplay(gdk_display_get_default());
-        Window w = gdk_x11_window_get_xid(gtk_widget_get_window(window));
+        Window w = gdk_x11_window_get_xid(gtk_widget_get_window(lerm.window));
         XReparentWindow(d, w, p, 0, 0);
     }
     gtk_main();

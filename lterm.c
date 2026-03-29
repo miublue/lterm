@@ -9,7 +9,7 @@ static struct {
     char *cmd[255];
     char *cur_dir, *x11_wid, *win_title, *font;
     double alpha_scale, line_spacing;
-    int hide_mouse, enable_sixel;
+    int hide_mouse;
 } opts;
 
 static struct {
@@ -33,7 +33,7 @@ static void setup_terminal(VteTerminal *term) {
     vte_terminal_set_cursor_blink_mode(term, VTE_CURSOR_BLINK_OFF);
     vte_terminal_set_font(term, font);
     vte_terminal_set_font_scale(term, 1.0);
-    vte_terminal_set_enable_sixel(term, opts.enable_sixel);
+    vte_terminal_set_enable_sixel(term, TRUE);
     vte_terminal_set_mouse_autohide(term, opts.hide_mouse);
     vte_terminal_set_cell_height_scale(term, opts.line_spacing);
     gtk_widget_set_visual(lerm.window, gdk_screen_get_rgba_visual(gtk_widget_get_screen(lerm.window)));
@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
     opts.cmd[0] = SHELL;
     opts.win_title = TITLE, opts.font = FONT;
     opts.alpha_scale = ALPHA, opts.line_spacing = LINE_SPACING;
-    opts.hide_mouse = HIDE_MOUSE, opts.enable_sixel = ENABLE_SIXEL;
+    opts.hide_mouse = HIDE_MOUSE;
     lerm.font_scale = 1.0;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "-h") || (argv[i][0] == '-' && i+1 >= argc)) {

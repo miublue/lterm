@@ -8,7 +8,6 @@
 #define FONT "Terminess Nerd Font 18"
 #define SHELL "/bin/mksh"
 #define HIDE_MOUSE TRUE
-#define ENABLE_SIXEL TRUE
 #define LINE_SPACING 1.2
 
 #define KEY_COPY                  TERM_KEY(GDK_CONTROL_MASK|GDK_SHIFT_MASK, GDK_KEY_C)

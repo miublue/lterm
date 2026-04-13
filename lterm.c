@@ -9,7 +9,7 @@ static struct {
     char *cmd[255];
     char *cur_dir, *x11_wid, *win_title, *font;
     double alpha_scale, cell_width, cell_height;
-    int hide_mouse;
+    int hide_mouse, win_width, win_height;
 } opts;
 
 static struct {
@@ -64,7 +64,7 @@ static gboolean cb_key_press(GtkWidget *w, GdkEventKey *event) {
 }
 
 static void usage(const char *prg) {
-    printf("usage: %s [-h|-w wid|-d dir|-t title|-f font|-a alpha|-s scale] [command [args ...]]\n", prg);
+    printf("usage: %s [-h|-w|-d|-t|-f|-a|-cw|-ch|-ww|-wh] [command [args ...]]\n", prg);
     printf("    -h         show help\n");
     printf("    -w wid     launch terminal within another X11 window\n");
     printf("    -d dir     launch terminal in specified directory\n");
@@ -73,12 +73,15 @@ static void usage(const char *prg) {
     printf("    -a alpha   set window transparency from 0 to 1\n");
     printf("    -cw scale  set terminal cell's width scale\n");
     printf("    -ch scale  set terminal cell's height scale\n");
+    printf("    -ww width  set specified window width\n");
+    printf("    -wh height set specified window height\n");
     exit(0);
 }
 
 int main(int argc, char **argv) {
     opts.cmd[0] = SHELL;
     opts.win_title = TITLE, opts.font = FONT;
+    opts.win_width = WIDTH, opts.win_height = HEIGHT;
     opts.alpha_scale = ALPHA, opts.cell_width = CELL_WIDTH, opts.cell_height = CELL_HEIGHT;
     opts.hide_mouse = HIDE_MOUSE;
     lerm.font_scale = 1.0;
@@ -100,6 +103,10 @@ int main(int argc, char **argv) {
             opts.cell_width = strtod(argv[++i], NULL);
         } else if (!strcmp(argv[i], "-ch")) {
             opts.cell_height = strtod(argv[++i], NULL);
+        } else if (!strcmp(argv[i], "-ww")) {
+            opts.win_width = strtod(argv[++i], NULL);
+        } else if (!strcmp(argv[i], "-wh")) {
+            opts.win_height = strtod(argv[++i], NULL);
         } else {
             if (argv[i][0] == '-') usage(argv[0]);
             opts.cmd[1] = "-c";
@@ -111,7 +118,7 @@ int main(int argc, char **argv) {
     gtk_init(&argc, &argv);
     lerm.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     lerm.term = vte_terminal_new();
-    gtk_window_set_default_size(GTK_WINDOW(lerm.window), WIDTH, HEIGHT);
+    gtk_window_set_default_size(GTK_WINDOW(lerm.window), opts.win_width, opts.win_height);
     gtk_window_set_title(GTK_WINDOW(lerm.window), opts.win_title);
     g_signal_connect(lerm.window, "key-press-event", G_CALLBACK(cb_key_press), NULL);
     g_signal_connect(lerm.window, "destroy", G_CALLBACK(gtk_main_quit), NULL);

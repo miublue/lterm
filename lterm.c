@@ -3,11 +3,12 @@
 #include <X11/Xlib.h>
 #include <vte/vte.h>
 #include <stdio.h>
+#include <ctype.h>
 #include "config.h"
 
 static struct {
     char *cmd[255];
-    char *cur_dir, *x11_wid, *win_title, *font;
+    char *cur_dir, *x11_wid, *win_title, *font, *colors_path;
     double alpha_scale, cell_width, cell_height;
     int hide_mouse, win_width, win_height;
 } opts;
@@ -17,6 +18,28 @@ static struct {
     GdkRGBA background, palette[16];
     double font_scale;
 } lerm;
+
+static void load_colors_from_file(const char *path) {
+    char buf[8] = {0};
+    int sz = 0, idx = 0, c;
+    FILE *file = fopen(path, "r");
+    if (!file) {
+        fprintf(stderr, "error: could not read from file '%s'\n", path);
+        return;
+    }
+    do {
+        if ((c = fgetc(file)) == EOF) break;
+        while (c != '#' && c != EOF) c = fgetc(file);
+        if (c == '#') {
+            buf[sz++] = c;
+            while (c != EOF && isxdigit(c = fgetc(file)) && sz < 8) buf[sz++] = c;
+            colors[idx++] = strndup(buf, sz);
+            if (idx == 16) break;
+            sz = 0;
+        }
+    } while (c != EOF);
+    fclose(file);
+}
 
 static void set_alpha_scale(double scale) {
     lerm.background.alpha = scale;
@@ -64,10 +87,11 @@ static gboolean cb_key_press(GtkWidget *w, GdkEventKey *event) {
 }
 
 static void usage(const char *prg) {
-    printf("usage: %s [-h|-w|-d|-t|-f|-a|-cw|-ch|-ww|-wh] [command [args ...]]\n", prg);
+    printf("usage: %s [ -h | -w | -d | -c | -t | -f | -a | -cw | -ch | -ww | -wh ] [command [args ...]]\n", prg);
     printf("    -h         show help\n");
     printf("    -w wid     launch terminal within another X11 window\n");
     printf("    -d dir     launch terminal in specified directory\n");
+    printf("    -c file    load colors from specified file\n");
     printf("    -t title   set specified window title\n");
     printf("    -f font    set specified font\n");
     printf("    -a alpha   set window transparency from 0 to 1\n");
@@ -80,7 +104,7 @@ static void usage(const char *prg) {
 
 int main(int argc, char **argv) {
     opts.cmd[0] = SHELL;
-    opts.win_title = TITLE, opts.font = FONT;
+    opts.win_title = TITLE, opts.font = FONT, opts.colors_path = NULL;
     opts.win_width = WIDTH, opts.win_height = HEIGHT;
     opts.alpha_scale = ALPHA, opts.cell_width = CELL_WIDTH, opts.cell_height = CELL_HEIGHT;
     opts.hide_mouse = HIDE_MOUSE;
@@ -92,6 +116,8 @@ int main(int argc, char **argv) {
             opts.cur_dir = argv[++i];
         } else if (!strcmp(argv[i], "-w")) {
             opts.x11_wid = argv[++i];
+        } else if (!strcmp(argv[i], "-c")) {
+            opts.colors_path = argv[++i];
         } else if (!strcmp(argv[i], "-t")) {
             opts.win_title = argv[++i];
         } else if (!strcmp(argv[i], "-f")) {
@@ -115,6 +141,7 @@ int main(int argc, char **argv) {
         }
     }
 
+    if (opts.colors_path) load_colors_from_file(opts.colors_path);
     gtk_init(&argc, &argv);
     lerm.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     lerm.term = vte_terminal_new();

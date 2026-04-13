@@ -20,7 +20,7 @@
 #define KEY_DECREMENT_OPACITY     TERM_KEY(GDK_CONTROL_MASK|GDK_SHIFT_MASK, GDK_KEY_underscore)
 #define KEY_RESET_OPACITY         TERM_KEY(GDK_CONTROL_MASK|GDK_SHIFT_MASK, GDK_KEY_parenright)
 
-const char *colors[16] = {
+char *colors[16] = {
     "#000000", "#ff5faf", "#5fffaf", "#ffaf5f", "#87d7ff", "#af87d7", "#87d7ff", "#eeeeee",
     "#808080", "#ff5faf", "#5fffaf", "#ffaf5f", "#87d7ff", "#af87d7", "#87d7ff", "#eeeeee",
 };

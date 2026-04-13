@@ -8,7 +8,7 @@
 static struct {
     char *cmd[255];
     char *cur_dir, *x11_wid, *win_title, *font;
-    double alpha_scale, line_spacing;
+    double alpha_scale, cell_width, cell_height;
     int hide_mouse;
 } opts;
 
@@ -35,7 +35,8 @@ static void setup_terminal(VteTerminal *term) {
     vte_terminal_set_font_scale(term, 1.0);
     vte_terminal_set_enable_sixel(term, TRUE);
     vte_terminal_set_mouse_autohide(term, opts.hide_mouse);
-    vte_terminal_set_cell_height_scale(term, opts.line_spacing);
+    vte_terminal_set_cell_width_scale(term, opts.cell_width);
+    vte_terminal_set_cell_height_scale(term, opts.cell_height);
     gtk_widget_set_visual(lerm.window, gdk_screen_get_rgba_visual(gtk_widget_get_screen(lerm.window)));
 }
 
@@ -64,20 +65,21 @@ static gboolean cb_key_press(GtkWidget *w, GdkEventKey *event) {
 
 static void usage(const char *prg) {
     printf("usage: %s [-h|-w wid|-d dir|-t title|-f font|-a alpha|-s scale] [command [args ...]]\n", prg);
-    printf("    -h        show help\n");
-    printf("    -w wid    launch terminal within another X11 window\n");
-    printf("    -d dir    launch terminal in specified directory\n");
-    printf("    -t title  set specified window title\n");
-    printf("    -f font   set specified font\n");
-    printf("    -a alpha  set window transparency from 0 to 1\n");
-    printf("    -s scale  set line spacing\n");
+    printf("    -h         show help\n");
+    printf("    -w wid     launch terminal within another X11 window\n");
+    printf("    -d dir     launch terminal in specified directory\n");
+    printf("    -t title   set specified window title\n");
+    printf("    -f font    set specified font\n");
+    printf("    -a alpha   set window transparency from 0 to 1\n");
+    printf("    -cw scale  set terminal cell's width scale\n");
+    printf("    -ch scale  set terminal cell's height scale\n");
     exit(0);
 }
 
 int main(int argc, char **argv) {
     opts.cmd[0] = SHELL;
     opts.win_title = TITLE, opts.font = FONT;
-    opts.alpha_scale = ALPHA, opts.line_spacing = LINE_SPACING;
+    opts.alpha_scale = ALPHA, opts.cell_width = CELL_WIDTH, opts.cell_height = CELL_HEIGHT;
     opts.hide_mouse = HIDE_MOUSE;
     lerm.font_scale = 1.0;
     for (int i = 1; i < argc; ++i) {
@@ -94,8 +96,10 @@ int main(int argc, char **argv) {
         } else if (!strcmp(argv[i], "-a")) {
             opts.alpha_scale = strtod(argv[++i], NULL);
             opts.alpha_scale = (opts.alpha_scale < 0? 0 : opts.alpha_scale > 1? 1 : opts.alpha_scale);
-        } else if (!strcmp(argv[i], "-s")) {
-            opts.line_spacing = strtod(argv[++i], NULL);
+        } else if (!strcmp(argv[i], "-cw")) {
+            opts.cell_width = strtod(argv[++i], NULL);
+        } else if (!strcmp(argv[i], "-ch")) {
+            opts.cell_height = strtod(argv[++i], NULL);
         } else {
             if (argv[i][0] == '-') usage(argv[0]);
             opts.cmd[1] = "-c";
